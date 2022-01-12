@@ -1,13 +1,20 @@
-import pygame
+import pygame, pyganim
 import sys
 import os
 
-
 SCREEN_WIDTH = 800
-SCREEN_HEIGHT = 600
+SCREEN_HEIGHT = 450
+tile_width = tile_height = 50
 pygame.init()
 size = [SCREEN_WIDTH, SCREEN_HEIGHT]
 screen = pygame.display.set_mode(size)
+pygame.display.set_caption("Платформер")
+active_sprite_list = pygame.sprite.Group()
+platform_list = pygame.sprite.Group()
+all_sprites = pygame.sprite.Group()
+maps_list, level_list = [open('data/map_1.txt').readlines()], ['map_1.txt']
+clock = pygame.time.Clock()
+FPS = 60
 
 
 def load_image(name, colorkey=None):
@@ -26,47 +33,96 @@ def load_image(name, colorkey=None):
     return image
 
 
-bg = load_image('bg.jpg')
-bg = pygame.transform.smoothscale(bg, (1000, 600))
+fon = load_image('fon.png')
+fon = pygame.transform.smoothscale(fon, (3500, 450))
+
+
+def load_level(filename):
+    filename = "data/" + filename
+    with open(filename, 'r') as mapFile:
+        level_map = [line.strip() for line in mapFile]
+    return list(level_map)
+
+
+tile_images = {'platform': 'block.png', 'box': 'box.png', 'lt_up_pipe': 'lt_up_pipe.png',
+               'floor': 'floor.png', 'lt_dn_pipe': 'lt_dn_pipe.png', 'rt_up_pipe': 'rt_up_pipe.png',
+               'rt_dn_pipe': 'rt_dn_pipe.png'}
 
 
 class Player(pygame.sprite.Sprite):
+    global platform_list
     right = True
 
-    def __init__(self):
-        self.images = []
-        self.imagesl = []
+    def __init__(self, x, y):
+        self.image = pygame.Surface((45, 45))
+        self.total_x = self.total_y = 0
+        self.rect_x = x
+        self.rect_y = y
+        self.move = 'stay'
         self.k = 0
         super().__init__()
-
-        self.images.append(load_image("mario0.png"))
-        self.images.append(load_image("mario1.png"))
-        self.images.append(load_image("mario2.png"))
-        self.images.append(load_image("mario3.png"))
-        self.imagesl.append(load_image("mario0_l.png"))
-        self.imagesl.append(load_image("mario1_l.png"))
-        self.imagesl.append(load_image("mario2_l.png"))
-        self.image = load_image("mario0.png")
-
+        self.stay = [("data/mario0.png", 1)]
+        self.block_hit_list = []
+        self.imagesr = [(load_image("mario1.png"), 100), (load_image("mario2.png"), 100),
+                        (load_image("mario3.png"), 100), (load_image("mario2.png"), 100)]
+        self.imagesl = [(load_image("mario1_l.png"), 100), (load_image("mario2_l.png"), 100),
+                        (load_image("mario3_l.png"), 100), (load_image("mario2_l.png"), 100)]
+        self.imagesup = [(load_image("mario5.png"), 1)]
+        self.imagesup_l = [(load_image("mario5_l.png"), 1)]
         self.rect = self.image.get_rect()
+        self.image.set_colorkey((0, 0, 0))
+
+        def make_Anim(anim_lst):
+            Anim = pyganim.PygAnimation(anim_lst)
+            return Anim
+
+        self.AnimStay = pyganim.PygAnimation(self.stay)
+        self.AnimStay.play()
+        self.AnimRight = make_Anim(self.imagesr)
+        self.AnimRight.play()
+        self.AnimLeft = make_Anim(self.imagesl)
+        self.AnimLeft.play()
+        self.AnimUp = make_Anim(self.imagesup)
+        self.AnimUp.play()
+        self.AnimUp_l = make_Anim(self.imagesup_l)
+        self.AnimUp_l.play()
 
         self.change_x = 0
         self.change_y = 0
 
     def update(self):
         self.calc_grav()
-        self.rect.x += self.change_x
-        block_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
-        for block in block_hit_list:
+        if self.move == 'stay':
+            self.image.fill((0, 0, 0))
+            self.AnimStay.blit(self.image, (0, 0))
+        elif self.move == 'right':
+            self.image.fill((0, 0, 0))
+            self.AnimRight.blit(self.image, (0, 0))
+        elif self.move == 'left':
+            self.image.fill((0, 0, 0))
+            self.AnimLeft.blit(self.image, (0, 0))
+        elif self.move == 'up':
+            if self.change_x == -9:
+                self.image.fill((0, 0, 0))
+                self.AnimUp_l.blit(self.image, (0, 0))
+            elif self.change_x == 9:
+                self.image.fill((0, 0, 0))
+                self.AnimUp.blit(self.image, (0, 0))
+
+        if (SCREEN_WIDTH / 2 > player.total_x) or (player.total_x > (LEVEL_WIDTH - SCREEN_WIDTH / 2)):
+            self.rect.x += self.change_x
+        self.total_x += self.change_x
+        self.block_hit_list = pygame.sprite.spritecollide(self, platform_list, False)
+        for block in self.block_hit_list:
             if self.change_x > 0:
                 self.rect.right = block.rect.left
             elif self.change_x < 0:
                 self.rect.left = block.rect.right
 
         self.rect.y += self.change_y
+        self.block_hit_list = pygame.sprite.spritecollide(self, platform_list, False)
 
-        block_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
-        for block in block_hit_list:
+        for block in self.block_hit_list:
             if self.change_y > 0:
                 self.rect.bottom = block.rect.top
             elif self.change_y < 0:
@@ -76,139 +132,119 @@ class Player(pygame.sprite.Sprite):
 
     def jump(self):
         self.rect.y += 10
-        platform_hit_list = pygame.sprite.spritecollide(self, self.level.platform_list, False)
+        platform_hit_list = pygame.sprite.spritecollide(self, platform_list, False)
         self.rect.y -= 10
 
-        if len(platform_hit_list) > 0 or self.rect.bottom >= SCREEN_HEIGHT:
+        if len(platform_hit_list) > 0 or self.rect.bottom >= LEVEL_HEIGHT:
             self.change_y = -16
 
     def calc_grav(self):
         if self.change_y == 0:
             self.change_y = 1
         else:
-            self.change_y += 0.95
+            self.change_y += 0.8
 
-        if self.rect.y >= SCREEN_HEIGHT - self.rect.height and self.change_y >= 0:
+        if self.rect.y >= LEVEL_HEIGHT - self.rect.height and self.change_y >= 0:
             self.change_y = 0
-            self.rect.y = SCREEN_HEIGHT - self.rect.height
+            self.rect.y = LEVEL_HEIGHT - self.rect.height
 
-    def go_left(self):
-        while self.k != 2:
-            self.change_x = - 9
-            if self.right:
-                self.right = False
-            self.k += 1
-            self.image = self.imagesl[self.k]
-        self.k = 0
-
-    def go_right(self):
-        if self.k != 2:
-            self.change_x = 9
-            if not self.right:
-                self.right = True
-            self.k += 1
-            self.image = self.images[self.k]
-        else:
-            self.k = 0
+    def plr_move(self, ls):
+        if (SCREEN_WIDTH / 2 >= player.total_x) or (player.total_x <= (LEVEL_WIDTH - SCREEN_WIDTH / 2)):
+            self.change_x = ls
 
     def stop(self):
         self.change_x = 0
-        if self.right:
-            self.image = self.images[0]
-        else:
-            self.image = self.imagesl[0]
+        self.move = 'stay'
+
+    def draw(self, surf):
+        surf.blit(self.image, (self.total_x, self.total_y))
 
 
-class Platform(pygame.sprite.Sprite):
-    def __init__(self, width, height):
-        super().__init__()
-        self.image = load_image('block.jpg')
-        self.image = pygame.transform.smoothscale(load_image('block.jpg'), (210, 32))
-        self.rect = self.image.get_rect()
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, tile_type, pos_x, pos_y):
+        super().__init__(all_sprites, platform_list)
+        self.image = load_image(tile_images[tile_type])
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x, tile_height * pos_y)
 
 
-class Level(object):
-    def __init__(self, player):
-        self.platform_list = pygame.sprite.Group()
-        self.player = player
+def draw(level):
+    new_player, x, y = None, None, None
+    screen.blit(fon, (0, 0))
+    for y in range(len(level)):
+        for x in range(len(level[y])):
+            if level[y][x] == 'o':
+                new_player = Player(0, 0)
+            elif level[y][x] == '-':
+                Tile('platform', x, y)
+            elif level[y][x] == '?':
+                Tile('box', x, y)
+            elif level[y][x] == 'R':
+                Tile('lt_up_pipe', x, y)
+            elif level[y][x] == 'r':
+                Tile('lt_dn_pipe', x, y)
+            elif level[y][x] == 'P':
+                Tile('rt_up_pipe', x, y)
+            elif level[y][x] == 'p':
+                Tile('rt_dn_pipe', x, y)
+            elif level[y][x] == 'f':
+                Tile('floor', x, y)
+    return new_player, x, y
+
+
+class Camera:
+    def __init__(self):
+        pass
 
     def update(self):
-        self.platform_list.update()
+        if ((SCREEN_WIDTH / 2 < player.total_x) and (player.total_x < (LEVEL_WIDTH - SCREEN_WIDTH / 2))) or \
+                (player.total_x > (LEVEL_WIDTH - SCREEN_WIDTH / 2)):
+            for sprite in platform_list:
+                sprite.rect.x += -player.change_x
 
-    def draw(self, screen):
-        screen.blit(bg, (0, 0))
-        self.platform_list.draw(screen)
+running = True
+Level = 0
+player, LEVEL_WIDTH, LEVEL_HEIGHT = draw(load_level(level_list[Level]))
+LEVEL_WIDTH = (LEVEL_WIDTH + 1) * 50
+LEVEL_HEIGHT = LEVEL_HEIGHT * 50
+active_sprite_list.add(player)
+camera = Camera()
 
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_LEFT:
+                player.move = 'left'
+                player.plr_move(-9)
+            if event.key == pygame.K_RIGHT:
+                player.move = 'right'
+                player.plr_move(9)
+            if event.key == pygame.K_UP:
+                player.move = 'up'
+                player.jump()
 
-class Level_01(Level):
-    def __init__(self, player):
-        Level.__init__(self, player)
-        level = [
-            [210, 32, 10, 520],
-            [210, 32, 200, 400],
-            [210, 32, 600, 300],
-        ]
-        for platform in level:
-            block = Platform(platform[0], platform[1])
-            block.rect.x = platform[2]
-            block.rect.y = platform[3]
-            block.player = self.player
-            self.platform_list.add(block)
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_LEFT and player.change_x < 0:
+                player.stop()
+            if event.key == pygame.K_RIGHT and player.change_x > 0:
+                player.stop()
 
+    active_sprite_list.update()
+    camera.update()
 
-if __name__ == '__main__':
-    pygame.init()
-    pygame.display.set_caption("Платформер")
-    player = Player()
-    level_list = []
-    level_list.append(Level_01(player))
-    current_level_no = 0
-    current_level = level_list[current_level_no]
+    if player.rect.right > LEVEL_WIDTH:
+        player.rect.right = LEVEL_WIDTH
 
-    active_sprite_list = pygame.sprite.Group()
-    player.level = current_level
+    if player.rect.left < 0:
+        player.rect.left = 0
 
-    player.rect.x = 340
-    player.rect.y = SCREEN_HEIGHT - player.rect.height
-    active_sprite_list.add(player)
+    screen.blit(fon, (0, 0))
+    platform_list.draw(screen)
+    active_sprite_list.draw(screen)
 
-    running = True
+    pygame.display.flip()
+    clock.tick(FPS)
 
-    clock = pygame.time.Clock()
-    FPS = 60
-
-    while running:
-        for event in pygame.event.get():
-
-            if event.type == pygame.QUIT:
-                running = False
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    player.go_left()
-                if event.key == pygame.K_RIGHT:
-                    player.go_right()
-                if event.key == pygame.K_UP:
-                    player.jump()
-
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_LEFT and player.change_x < 0:
-                    player.stop()
-                if event.key == pygame.K_RIGHT and player.change_x > 0:
-                    player.stop()
-
-        active_sprite_list.update()
-        current_level.update()
-
-        if player.rect.right > SCREEN_WIDTH:
-            player.rect.right = SCREEN_WIDTH
-
-        if player.rect.left < 0:
-            player.rect.left = 0
-
-        current_level.draw(screen)
-        active_sprite_list.draw(screen)
-
-        clock.tick(FPS)
-        pygame.display.flip()
-    pygame.quit()
+pygame.quit()
