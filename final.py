@@ -245,9 +245,17 @@ class Camera:
             for sprite in platform_list:
                 sprite.rect.x += -player.change_x
 
+
 def terminate():
     pygame.quit()
     sys.exit()
+
+
+def timer():
+    font = pygame.font.SysFont('comicsansms', 26)
+    text = 'Time:' + str(int(pygame.time.get_ticks() / 1000))
+    time = font.render(text, True, (255, 255, 255))
+    return time
 
 
 def start_screen():
@@ -288,6 +296,27 @@ def final_screen():
 
         pygame.display.flip()
         clock.tick(FPS)
+
+
+def win():
+    pygame.mixer.music.load("data/level_clear_mus.mp3")
+    pygame.mixer.music.play(-1)
+
+    screen.fill((0, 0, 0))
+    font = pygame.font.SysFont('comicsansms', 26)
+    text = 'Уровень 1 Пройден'
+    lvl_up = font.render(text, True, (255, 255, 255))
+    screen.blit(lvl_up, (300, 225))
+    pygame.display.flip()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                sys.exit()
 
 
 if start_screen():
@@ -337,12 +366,18 @@ if start_screen():
 
         if player.rect.left < 0:
             player.rect.left = 0
+
         if player.rect.bottom == 500:
             player.die()
+
+        if player.total_x >= 3916:
+            win()
 
         screen.blit(fon, (0, 0))
         platform_list.draw(screen)
         active_sprite_list.draw(screen)
+
+        screen.blit(timer(), (300, 0))
 
         pygame.display.flip()
         clock.tick(FPS)
