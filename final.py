@@ -16,6 +16,8 @@ active_sprite_list = pygame.sprite.Group()
 platform_list = pygame.sprite.Group()
 all_sprites = pygame.sprite.Group()
 
+live = 3
+
 maps_list, level_list = [open('data/map_1.txt').readlines(), open('data/map_2.txt').readlines()],\
                         ['map_1.txt', 'map_2.txt']
 
@@ -191,7 +193,11 @@ class Player(pygame.sprite.Sprite):
     def die(self):
         pygame.mixer.music.load("data/gameover_mus.mp3")
         pygame.mixer.music.play(loops=0, start=0.0, fade_ms=0)
-        final_screen()
+        lives(True)
+        if live == 0:
+            final_screen()
+        else:
+            game(0)
 
 
 class Tile(pygame.sprite.Sprite):
@@ -258,7 +264,18 @@ def terminate():
 
 def timer():
     font = pygame.font.SysFont('comicsansms', 26)
-    text = 'Time:' + str(int(pygame.time.get_ticks() / 1000) - 4)
+    time1 = int(pygame.time.get_ticks() / 1000) - 4
+    text = 'Time:' + str(time1)
+    time = font.render(text, True, (255, 255, 255))
+    return [time, time1]
+
+
+def lives(minus):
+    global live
+    if minus:
+        live -= 1
+    font = pygame.font.SysFont('comicsansms', 26)
+    text = "Осталось жизней - " + str(live)
     time = font.render(text, True, (255, 255, 255))
     return time
 
@@ -286,6 +303,7 @@ def start_screen():
 def final_screen():
     pygame.mixer.music.load("data/gameover_mus.mp3")
     pygame.mixer.music.play(-1)
+    k = 0
 
     gameover = pygame.transform.scale(load_image('gameover.jpg'), (SCREEN_WIDTH, SCREEN_HEIGHT))
     screen.blit(gameover, (0, 0))
@@ -298,38 +316,67 @@ def final_screen():
             elif event.type == pygame.KEYDOWN or \
                     event.type == pygame.MOUSEBUTTONDOWN:
                 sys.exit()
+        if k == 0:
+            font = pygame.font.SysFont('comicsansms', 26)
+            text = 'Твоё время - ' + str(timer()[1])
+            time = font.render(text, True, (255, 255, 255))
+            screen.blit(time, (0, 0))
+            k += 1
 
         pygame.display.flip()
         clock.tick(FPS)
 
 
-def win():
+def win(lvl):
     pygame.mixer.music.load("data/level_clear_mus.mp3")
     pygame.mixer.music.play()
 
-    screen.fill((0, 0, 0))
-    font = pygame.font.SysFont('comicsansms', 26)
-    text = 'Уровень 1 Пройден'
-    lvl_up = font.render(text, True, (255, 255, 255))
-    screen.blit(lvl_up, (300, 225))
-    pygame.display.flip()
     for sprite in active_sprite_list:
         sprite.kill()
     for sprite in platform_list:
         sprite.kill()
 
-    while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                terminate()
+    if lvl == 0:
+        screen.fill((0, 0, 0))
+        font = pygame.font.SysFont('comicsansms', 26)
+        text = 'Уровень 1 Пройден'
+        lvl_up = font.render(text, True, (255, 255, 255))
+        screen.blit(lvl_up, (300, 225))
+        pygame.display.flip()
 
-            elif event.type == pygame.KEYDOWN or \
-                    event.type == pygame.MOUSEBUTTONDOWN:
-                game(1)
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminate()
+
+                elif event.type == pygame.KEYDOWN or \
+                        event.type == pygame.MOUSEBUTTONDOWN:
+                    game(1)
+    else:
+        screen.fill((0, 0, 0))
+        font = pygame.font.SysFont('comicsansms', 26)
+        text = 'Вы победили!!!'
+        lvl_up = font.render(text, True, (255, 255, 255))
+        screen.blit(lvl_up, (300, 225))
+        pygame.display.flip()
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminate()
+
+                elif event.type == pygame.KEYDOWN or \
+                        event.type == pygame.MOUSEBUTTONDOWN:
+                    sys.exit()
 
 
 def game(lvl):
     global player, LEVEL_WIDTH, LEVEL_HEIGHT
+
+    for sprite in active_sprite_list:
+        sprite.kill()
+    for sprite in platform_list:
+        sprite.kill()
 
     player, LEVEL_WIDTH, LEVEL_HEIGHT = draw(load_level(level_list[lvl]))
     LEVEL_WIDTH = (LEVEL_WIDTH + 1) * 50
@@ -340,14 +387,17 @@ def game(lvl):
 
     active_sprite_list.add(player)
 
-    if lvl == 0:
+    if lvl == 0 and live == 3:
         if start_screen():
             pygame.mixer.music.load("data/level_1_mus.mp3")
             pygame.mixer.music.play(-1)
-
     else:
-        pygame.mixer.music.load("data/level_2_mus.mp3")
-        pygame.mixer.music.play(-1)
+        if lvl == 0:
+            pygame.mixer.music.load("data/level_1_mus.mp3")
+            pygame.mixer.music.play(-1)
+        else:
+            pygame.mixer.music.load("data/level_2_mus.mp3")
+            pygame.mixer.music.play(-1)
 
     while running:
         for event in pygame.event.get():
@@ -387,7 +437,9 @@ def game(lvl):
             player.die()
 
         if player.total_x >= 3916 and lvl == 0:
-            win()
+            win(0)
+        elif player.total_x >= 5700 and lvl == 1:
+            win(1)
 
         if lvl == 0:
             screen.blit(fon, (0, 0))
@@ -397,7 +449,8 @@ def game(lvl):
         platform_list.draw(screen)
         active_sprite_list.draw(screen)
 
-        screen.blit(timer(), (300, 0))
+        screen.blit(timer()[0], (400, 0))
+        screen.blit(lives(False), (0, 0))
 
         pygame.display.flip()
         clock.tick(FPS)
@@ -405,4 +458,4 @@ def game(lvl):
     pygame.quit()
 
 
-game(0)
+game(1)
