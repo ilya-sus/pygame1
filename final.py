@@ -430,7 +430,7 @@ if start_screen():
                     player.die()
 
                 if player.total_x >= castle_x - 50:
-                    win(int(i) + 1)
+                    win(i + 1)
                     running = False
 
                 screen.blit(fon, (0, 0))
