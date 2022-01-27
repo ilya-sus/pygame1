@@ -143,7 +143,6 @@ class Player(pygame.sprite.Sprite):
 
         self.block_hit_list = pygame.sprite.spritecollide(self, platform_list, False)
 
-
         for block in self.block_hit_list:
             if block in coins_list:
                 block.kill()
